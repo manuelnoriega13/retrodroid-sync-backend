@@ -5,19 +5,25 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"retrodroid-sync-backend/model"
 )
 
 // DiskStorage maneja las operaciones del sistema de archivos local
-type DiskStorage struct {
+type BackupStorage struct {
 	baseDir string
 }
 
-func NewDiskStorage(baseDir string) *DiskStorage {
-	return &DiskStorage{baseDir: baseDir}
+func NewBackupStorage(baseDir string) *BackupStorage {
+	return &BackupStorage{baseDir: baseDir}
 }
 
 // SaveFile crea los directorios necesarios y guarda el archivo en el disco
-func (s *DiskStorage) SaveFile(emulator, filename string, file io.Reader) (string, error) {
+func (s *BackupStorage) SaveFile(uploadRequestDTO *model.UploadRequestDTO) (string, error) {
+
+	emulator := uploadRequestDTO.Emulator
+	file := uploadRequestDTO.File
+	filename := uploadRequestDTO.Header.Filename
+
 	storageDir := filepath.Join(s.baseDir, emulator)
 
 	// Crear el directorio si no existe

@@ -4,73 +4,52 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
+	"retrodroid-sync-backend/model"
+	"retrodroid-sync-backend/util"
 )
 
-const MaxUploadSize = 50 * 1024 * 1024 // 50 Megabytes
+var UploadSize = util.MaxSizeMB(50)
 
-// Estructuras de respuesta JSON
-type UploadResponse struct {
-	Status   string `json:"status"`
-	Message  string `json:"message"`
-	Emulator string `json:"emulator"`
-	Filename string `json:"filename"`
-	Path     string `json:"path"`
+type BackupHandler struct {
+	backupService *BackupService
 }
 
-type ErrorResponse struct {
-	Status string `json:"status"`
-	Error  string `json:"error"`
+func NewBackupHandler(backupService *BackupService) *BackupHandler {
+	return &BackupHandler{backupService: backupService}
 }
 
-type Handler struct {
-	service *Service
-}
+func (h *BackupHandler) HandleBackupUpload(w http.ResponseWriter, r *http.Request) {
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
-}
-
-// ServeHTTP procesa la petición multipart
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		h.respondWithError(w, http.StatusMethodNotAllowed, "Method not allowed. Only POST requests are permitted")
 		return
 	}
 
-	// Limitar el tamaño del body
-	r.Body = http.MaxBytesReader(w, r.Body, MaxUploadSize)
+	r.Body = http.MaxBytesReader(w, r.Body, UploadSize)
 
-	if err := r.ParseMultipartForm(MaxUploadSize); err != nil {
+	if err := r.ParseMultipartForm(UploadSize); err != nil {
 		h.respondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to parse multipart form: %v", err))
 		return
 	}
 
-	emulator := r.FormValue("emulator")
-	if strings.TrimSpace(emulator) == "" {
-		h.respondWithError(w, http.StatusBadRequest, "Missing parameter 'emulator'")
-		return
-	}
-
-	file, header, err := r.FormFile("file")
+	UploadRequestDTO, err := model.ParseUploadRequest(r)
 	if err != nil {
-		h.respondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to retrieve 'file' field: %v", err))
-		return
-	}
-	defer file.Close()
-
-	// Enviar al servicio
-	sanitizedEmulator, sanitizedFilename, destFilePath, err := h.service.ProcessUpload(emulator, header.Filename, file)
-	if err != nil {
-		// En un entorno de producción, aquí diferenciaríamos entre errores 400 y 500
 		h.respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// Responder éxito
+	defer UploadRequestDTO.File.Close()
+
+	sanitizedEmulator, sanitizedFilename, destFilePath, err := h.backupService.ProcessUpload(UploadRequestDTO)
+
+	if err != nil {
+		h.respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(UploadResponse{
+	_ = json.NewEncoder(w).Encode(model.UploadResponse{
 		Status:   "success",
 		Message:  "Save file synchronised successfully",
 		Emulator: sanitizedEmulator,
@@ -79,10 +58,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handler) respondWithError(w http.ResponseWriter, code int, errMsg string) {
+func (h *BackupHandler) respondWithError(w http.ResponseWriter, code int, errMsg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(ErrorResponse{
+	_ = json.NewEncoder(w).Encode(model.ErrorResponse{
 		Status: "error",
 		Error:  errMsg,
 	})

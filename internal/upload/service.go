@@ -3,37 +3,41 @@ package upload
 import (
 	"errors"
 	"fmt"
-	"io"
 	"path/filepath"
+	"retrodroid-sync-backend/model"
 	"strings"
 	"time"
 )
 
 // Service contiene la lógica de negocio para las subidas
-type Service struct {
-	storage *DiskStorage
+type BackupService struct {
+	storage *BackupStorage
 }
 
-func NewService(storage *DiskStorage) *Service {
-	return &Service{storage: storage}
+func NewBackupService(storage *BackupStorage) *BackupService {
+	return &BackupService{storage: storage}
 }
 
 // ProcessUpload sanitiza las entradas, inyecta la hora militar, valida el archivo y lo envía al storage
-func (s *Service) ProcessUpload(emulator, originalFilename string, file io.Reader) (string, string, string, error) {
+func (s *BackupService) ProcessUpload(uploadRequestDTO *model.UploadRequestDTO) (string, string, string, error) {
 	// 1. Sanitizar el nombre del emulador (ej: "ppsspp")
+
+	emulator := uploadRequestDTO.Emulator
+	filename := uploadRequestDTO.Header.Filename
+
 	sanitizedEmulator := filepath.Base(filepath.Clean(emulator))
 	if sanitizedEmulator == "." || sanitizedEmulator == ".." || sanitizedEmulator == "/" {
 		return "", "", "", errors.New("invalid or unsafe 'emulator' parameter value")
 	}
 
 	// 2. Validar extensión estricta
-	ext := strings.ToLower(filepath.Ext(originalFilename))
+	ext := strings.ToLower(filepath.Ext(filename))
 	if ext != ".zip" {
 		return "", "", "", errors.New("invalid file format. Only '.zip' archives are permitted")
 	}
 
 	// 3. Sanitizar el nombre base del archivo (ej: "ppsspp-24-12-26.zip")
-	baseName := filepath.Base(filepath.Clean(originalFilename))
+	baseName := filepath.Base(filepath.Clean(filename))
 	if baseName == "." || baseName == ".." || baseName == "/" {
 		return "", "", "", errors.New("invalid or unsafe upload filename")
 	}
@@ -50,7 +54,7 @@ func (s *Service) ProcessUpload(emulator, originalFilename string, file io.Reade
 	finalFilename := fmt.Sprintf("%s-%s-%s", sanitizedEmulator, militaryTime, remainder)
 
 	// Delegar el guardado físico a la capa de storage
-	savedPath, err := s.storage.SaveFile(sanitizedEmulator, finalFilename, file)
+	savedPath, err := s.storage.SaveFile(uploadRequestDTO)
 	if err != nil {
 		return "", "", "", err
 	}
