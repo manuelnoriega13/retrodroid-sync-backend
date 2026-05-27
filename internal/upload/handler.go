@@ -5,17 +5,18 @@ import (
 	"fmt"
 	"net/http"
 	"retrodroid-sync-backend/model"
-	"retrodroid-sync-backend/util"
 )
-
-var UploadSize = util.MaxSizeMB(50)
 
 type BackupHandler struct {
 	backupService *BackupService
+	uploadSize    int64
 }
 
-func NewBackupHandler(backupService *BackupService) *BackupHandler {
-	return &BackupHandler{backupService: backupService}
+func NewBackupHandler(backupService *BackupService, uploadSize int64) *BackupHandler {
+	return &BackupHandler{
+		backupService: backupService,
+		uploadSize:    uploadSize,
+	}
 }
 
 func (h *BackupHandler) HandleBackupUpload(w http.ResponseWriter, r *http.Request) {
@@ -25,9 +26,9 @@ func (h *BackupHandler) HandleBackupUpload(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, UploadSize)
+	r.Body = http.MaxBytesReader(w, r.Body, h.uploadSize)
 
-	if err := r.ParseMultipartForm(UploadSize); err != nil {
+	if err := r.ParseMultipartForm(h.uploadSize); err != nil {
 		h.respondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to parse multipart form: %v", err))
 		return
 	}
