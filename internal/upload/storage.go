@@ -8,7 +8,6 @@ import (
 	"retrodroid-sync-backend/model"
 )
 
-// DiskStorage maneja las operaciones del sistema de archivos local
 type BackupStorage struct {
 	baseDir string
 }
@@ -17,7 +16,6 @@ func NewBackupStorage(baseDir string) *BackupStorage {
 	return &BackupStorage{baseDir: baseDir}
 }
 
-// SaveFile crea los directorios necesarios y guarda el archivo en el disco
 func (s *BackupStorage) SaveFile(uploadRequestDTO *model.UploadRequestDTO) (string, error) {
 
 	emulator := uploadRequestDTO.Emulator

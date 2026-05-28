@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-// Service contiene la lógica de negocio para las subidas
 type BackupService struct {
 	storage *BackupStorage
 }
@@ -18,7 +17,6 @@ func NewBackupService(storage *BackupStorage) *BackupService {
 	return &BackupService{storage: storage}
 }
 
-// ProcessUpload sanitiza las entradas, inyecta la hora militar, valida el archivo y lo envía al storage
 func (s *BackupService) ProcessUpload(uploadRequestDTO *model.UploadRequestDTO) (string, string, string, error) {
 	// 1. Sanitizar el nombre del emulador (ej: "ppsspp")
 
